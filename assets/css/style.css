@@ -1,0 +1,34 @@
+body {
+    font-family: Verdana, Geneva, Tahoma, sans-serif !important;
+    /* font-weight: bold !important; */
+    font-size: .8em !important;
+}
+
+body {
+    border: 0px;
+    margin: 0px;
+    padding: 5px;
+}
+
+#map {
+    position: absolute;
+    bottom: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+}
+
+#panelFilter {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background-color: #ffffff;
+    padding: 10px;
+    border: 1px solid #ccc;
+    z-index: 1000;
+    width: 300px;
+}
+
+.bg-selected-range{
+    background-color: #ccc;
+}
