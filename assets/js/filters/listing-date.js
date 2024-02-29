@@ -59,37 +59,23 @@ $('.dpListingDate input').on('changeDate', function (e) {
     }
 });
 
-function filterByListingDate(feature_date, listingDate) {
-
+function filterByListingDate(feature, listingDate) {
+    var feature_date = feature.get('stat1_date1');
     if (feature_date) {
+        
+        feature_date = new Date(feature_date);
+        // console.log(feature_date > listingDate[1]);
         if (listingDate[2] === 'Before' && feature_date < listingDate[0]) {
-            return true;
-        } else if (listingDate[2] === 'After' && feature_date > listingDate[1]) {
-            return true;
+            return style_simple;
+        } else if (listingDate[2] === 'After' && feature_date > listingDate[0]) {
+            
+            return style_simple;
         } else if (listingDate[2] === 'Between' && feature_date >= listingDate[0] && feature_date <= listingDate[1]) {
-            // console.log(feature_date);
-            return true;
+            return style_simple;
         } else {
-            return false;
+            return null;
         }
     } else {
-        // Handle cases where the feature doesn't have a listing_date property
-        return false;
+        return null;
     }
 }
-
-// function filterByListingDate(featureStatDate, listingDate) {
-//     console.log('date called');
-//     var startDate = new Date(listingDate[0]);
-//     var endDate = new Date(listingDate[1]);
-
-//     return featureStatDate >= startDate && featureStatDate <= endDate;
-
-//     // if (!isNaN(featureStatDate.getTime()) && listingDate !== null) {
-//     //     var startDate = new Date(listingDate[0]);
-//     //     var endDate = new Date(listingDate[1]);
-
-//     //     return featureStatDate >= startDate && featureStatDate <= endDate;
-//     // }
-//     // return false;
-// }

@@ -8,17 +8,18 @@ var style_simple = new ol.style.Style({
   })
 });
 
-function updateStyle(feature, lastStatFilter, priceRange, listingDate) {
-  var isLastStatMatch = (lastStatFilter !== null) ? filterByLastStat(feature, lastStatFilter) : true;
-  var isPriceRangeMatch = (priceRange !== null) ? filterByPriceRange(feature, priceRange) : true;
-  var isListingDateMatch = (listingDate !== null) ? filterByListingDate(new Date(feature.get('stat1_date1')), listingDate) : true;
+// function updateStyle(feature, lastStatFilter, priceRange, listingDate) {
+//   console.log(lastStatFilter, priceRange, listingDate);
+//   var isLastStatMatch = (lastStatFilter !== null) ? filterByLastStat(feature, lastStatFilter) : true;
+//   var isPriceRangeMatch = (priceRange !== null) ? filterByPriceRange(feature, priceRange) : true;
+//   var isListingDateMatch = (listingDate !== null) ? filterByListingDate(new Date(feature.get('stat1_date1')), listingDate) : true;
 
-  if (isLastStatMatch && isPriceRangeMatch && isListingDateMatch) {
-      return style_simple;
-  } else {
-      return null;
-  }
-}
+//   if (isLastStatMatch && isPriceRangeMatch && isListingDateMatch) {
+//       return style_simple;
+//   } else {
+//       return null;
+//   }
+// }
 
 // function updateStyle(feature, lastStatFilter, priceRange, listingDate) {
 //   var isLastStatMatch = filterByLastStat(feature, lastStatFilter);

@@ -1,8 +1,8 @@
-
+minZoom = 12;
 var view = new ol.View({
-    center: [-118.3978214, 33.7741529],
+    center: [-118.331461, 33.795996],
     zoom: 13,
-    minZoom: 13,
+    minZoom: minZoom,
     resolutions: resolutions,
     projection: projection,
     extent: [-180.0, -90.0, 180.0, 90.0]
@@ -19,15 +19,41 @@ var popup = new ol.Overlay.Popup({
     }
 });
 
+var osmLayer = new ol.layer.Tile({
+    title: 'OpenStreetMap',
+    source: new ol.source.OSM()
+});
+
+var googleStreetLayer = new ol.layer.Tile({
+    title: 'Google Street',
+    source: new ol.source.XYZ({
+        url: 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}'
+    })
+});
+
+
+var googleSatelliteLayer = new ol.layer.Tile({
+    title: 'Google Satellite',
+    source: new ol.source.XYZ({
+        url: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}'
+    })
+});
+
+var layerSwitcher = new ol.control.LayerSwitcher({
+    tipLabel: 'Layers'
+});
+
+
 var map = new ol.Map({
     controls: [
         new ol.control.MousePosition(),
         new ol.control.Zoom(),
+        layerSwitcher
     ],
     layers: [
-        new ol.layer.Tile({
-            source: new ol.source.OSM()
-        }),
+        osmLayer,
+        googleStreetLayer,
+        googleSatelliteLayer,
         parcelVectorTile
     ],
     overlays: [popup],
@@ -66,5 +92,5 @@ map.on('click', function (event) {
 
 map.getView().on('change:resolution', function () {
     var currentZoom = view.getZoom();
-    parcelVectorTile.setVisible(currentZoom >= 13);
+    parcelVectorTile.setVisible(currentZoom >= minZoom);
 });

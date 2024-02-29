@@ -26,7 +26,10 @@ body {
     padding: 10px;
     border: 1px solid #ccc;
     z-index: 1000;
-    width: 300px;
+    width: 350px;
+    max-height: 690px;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .bg-selected-range{

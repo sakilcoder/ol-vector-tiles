@@ -1,7 +1,7 @@
 /**
  * ol-ext - A set of cool extensions for OpenLayers (ol) in node modules structure
  * @description ol3,openlayers,popup,menu,symbol,renderer,filter,canvas,interaction,split,statistic,charts,pie,LayerSwitcher,toolbar,animation
- * @version v4.0.13
+ * @version v4.0.15
  * @author Jean-Marc Viglino
  * @see https://github.com/Viglino/ol-ext#,
  * @license BSD-3-Clause
@@ -5570,7 +5570,7 @@ ol.control.SearchPhoton = class olcontrolSearchPhoton extends ol.control.SearchJ
  * @param {any} options extend ol.control.SearchJSON options
  *	@param {string} options.className control class name
  *	@param {string | undefined} [options.apiKey] the service api key.
- *	@param {string | undefined} [options.version] API version 1 or 2 or gpf, default 2
+ *	@param {string | undefined} [options.version] API version 1 or 2 or geoplateforme (latest), default latest
  *	@param {string | undefined} options.authentication: basic authentication for the service API as btoa("login:pwd")
  *	@param {Element | string | undefined} options.target Specify a target if you want the control to be rendered outside of the map's viewport.
  *	@param {string | undefined} options.label Text label to use for the search button, default "search"
@@ -5593,14 +5593,16 @@ ol.control.SearchGeoportail = class olcontrolSearchGeoportail extends ol.control
     options = options || {};
     options.className = options.className || 'IGNF';
     options.typing = options.typing || 500;
-    if (options.version == 'gpf') {
-      options.url = 'https://data.geopf.fr/geocodage/completion';
-    } else if (options.version == 1) {
+    if (options.version == 1) {
       options.url = 'https://wxs.ign.fr/' + (options.apiKey || 'essentiels') + '/ols/apis/completion';
-    } else {
+      options.copy = '<a href="https://www.geoportail.gouv.fr/" target="new">&copy; IGN-Géoportail</a>';
+    } else if (options.version == 2) {
       options.url = 'https://wxs.ign.fr/' + (options.apiKey || 'essentiels') + '/geoportail/geocodage/rest/0.1/completion';
+      options.copy = '<a href="https://www.geoportail.gouv.fr/" target="new">&copy; IGN-Géoportail</a>';
+    } else {
+      options.url = 'https://data.geopf.fr/geocodage/completion';
+      options.copy = '<a href="https://geoservices.ign.fr/" target="new">&copy; IGN-Géoplateforme</a>';
     }
-    options.copy = '<a href="https://www.geoportail.gouv.fr/" target="new">&copy; IGN-Géoportail</a>';
     super(options);
     this.set('position', options.position);
     this.set('useExtent', options.useExtent);
@@ -7005,7 +7007,8 @@ ol.control.Bar = class olcontrolBar extends ol.control.Control {
     }
   }
   /** Post-process an activated/deactivated control
-   *	@param {ol.event} e :an object with a target {_ol_control_} and active flag {bool}
+   * @param {ol.event} e :an object with a target {_ol_control_} and active flag {bool}
+   * @private
    */
   onActivateControl_(e, ctrl) {
     if (this.get('toggleOne')) {
@@ -8607,7 +8610,7 @@ ol.control.EditBar = class olcontrolEditBar extends ol.control.Bar {
  *  @param {Element} [options.target] to display the control outside the map
  *  @param {string} [options.className] use `ol-bottom` to scroll at bottom (default top)
  *  @param {boolean} [options.collapsed=true] collapse the list on start, default true
- *  @param {Array<ol.Feature>[ol.Collection<ol.Feature>|ol.source.Vector]} [features] a set of feature to display. If provided as Source or Collection the features will stay in sync.
+ *  @param {Array<ol.Feature>|ol.Collection<ol.Feature>|ol.source.Vector} [features] a set of feature to display. If provided as Source or Collection the features will stay in sync.
  *  @param {number} [options.pageLength=100] number of row to display in the table (page optimzation)
  */
 ol.control.FeatureList = class olcontrolFeatureList extends ol.control.Control {
@@ -8682,6 +8685,7 @@ ol.control.FeatureList = class olcontrolFeatureList extends ol.control.Control {
       className: 'ol-list',
       parent: ol.ext.element.create('DIV', {
         className: 'ol-scroll-container',
+        tabindex: -1,
         parent: content
       })
     });
@@ -8869,18 +8873,26 @@ ol.control.FeatureList.prototype._drawList = function(delay) {
     var tr = ol.ext.element.create('TR', {
       on: {
         click: function (e) {
+          var td = e.target.closest('TD');
           this.dispatchEvent({
             type: 'select',
-            property: e.target.dataset.prop,
-            feature: f
+            property: td.dataset.prop,
+            feature: f,
+            row: e.target.closest('TR'),
+            col: td,
+            originalEvent: e
           })
           this.select(f, true)
         }.bind(this),
         dblclick: function(e) {
+          var td = e.target.closest('TD');
           this.dispatchEvent({
             type: 'dblclick',
-            property: e.target.dataset.prop,
-            feature: f
+            property: td.dataset.prop,
+            feature: f,
+            row: e.target.closest('TR'),
+            col: td,
+            originalEvent: e
           })
         }.bind(this)
       }
@@ -9024,6 +9036,8 @@ ol.control.FeatureList.prototype._drawPage = function() {
       height: Math.max(0, (this._listFeatures.length - nmax) * h) + 'px'
     }
   }))
+  // force focus on list
+  if (this.get('focus') !== false) this._listbody.focus();
 }
 /** A sort function to compare 2 properties
  * @param {ol.Feature} f1
@@ -10798,10 +10812,8 @@ ol.control.Imageline = class olcontrolImageline extends ol.control.Control {
  */
 ol.control.IsochroneGeoportail = class olcontrolIsochroneGeoportail extends ol.control.Control {
   constructor(options) {
-    if (!options)
-      options = {};
-    if (options.typing == undefined)
-      options.typing = 300;
+    if (!options) options = {};
+    if (options.typing == undefined) options.typing = 300;
     var classNames = (options.className ? options.className : '') + ' ol-isochrone ol-routing';
     if (!options.target) classNames += ' ol-unselectable ol-control';
     var element = ol.ext.element.create('DIV', { className: classNames });
@@ -10892,7 +10904,11 @@ ol.control.IsochroneGeoportail = class olcontrolIsochroneGeoportail extends ol.c
           this.search(this.get('coordinate'), val);
         }
       }.bind(this));
+    /* TODO  */
     this.set('url', 'https://wxs.ign.fr/' + (options.apiKey || 'essentiels') + '/isochrone/isochrone.json');
+    /*/
+    this.set('url', 'https://data.geopf.fr/navigation/isochrone')
+    /**/
     this._ajax = new ol.ext.Ajax({
       dataType: 'JSON',
       auth: options.auth
@@ -10939,7 +10955,6 @@ ol.control.IsochroneGeoportail = class olcontrolIsochroneGeoportail extends ol.c
    * @param [string] method The method (time or distance)
    */
   setMethod(method) {
-    7;
     method = (/distance/.test(method) ? 'distance' : 'time');
     this.element.querySelector(".ol-method-time").classList.remove("selected");
     this.element.querySelector(".ol-method-distance").classList.remove("selected");
@@ -11003,6 +11018,7 @@ ol.control.IsochroneGeoportail = class olcontrolIsochroneGeoportail extends ol.c
     var dt = Math.round(option * (this.get('iter') - (iter || 0)) / this.get('iter'));
     if (typeof option === 'number') {
       // Send data
+      /* TODO remove old version */
       var data = {
         'gp-access-lib': '2.1.0',
         location: ol.proj.toLonLat(coord, proj),
@@ -11015,6 +11031,16 @@ ol.control.IsochroneGeoportail = class olcontrolIsochroneGeoportail extends ol.c
         smoothing: this.get('smoothing') || true,
         holes: this.get('holes') || false
       };
+      /*/
+      // Capabilities: https://data.geopf.fr/navigation/getcapabilities
+      var data = {
+        resource: 'bdtopo-osrm', // "jmk_valhalla_cost_type_test", //
+        point: ol.proj.toLonLat(coord, proj),
+        profile: this.get('mode') === 'pedestrian' ? 'pedestrian' : 'car',
+        costType: method,
+        costValue: dt,
+      };
+      /**/
       this._ajax.send(this.get('url'), data, {
         coord: coord,
         option: option,
@@ -11027,18 +11053,29 @@ ol.control.IsochroneGeoportail = class olcontrolIsochroneGeoportail extends ol.c
    * @private
    */
   _success(e) {
+    console.log(e)
     var proj = this.getMap() ? this.getMap().getView().getProjection() : 'EPSG:3857';
     // Convert to features
-    var format = new ol.format.WKT();
     var evt = e.response;
-    evt.feature = format.readFeature(evt.wktGeometry, {
-      dataProjection: 'EPSG:4326',
-      featureProjection: proj
-    });
+    var format;
+    if (evt.wktGeometry) {
+      format = new ol.format.WKT();
+      evt.feature = format.readFeature(evt.wktGeometry, {
+        dataProjection: 'EPSG:4326',
+        featureProjection: proj
+      });
+      delete evt.wktGeometry;
+    } else {
+      format = new ol.format.GeoJSON();
+      evt.feature = format.readFeature(evt.geometry, {
+        dataProjection: 'EPSG:4326',
+        featureProjection: proj
+      });
+      delete evt.geometry;
+    }
     evt.feature.set('iteration', e.options.iteration);
     evt.feature.set('method', e.options.data.method);
     evt.feature.set(e.options.data.method, e.options.data[e.options.data.method]);
-    delete evt.wktGeometry;
     evt.type = 'isochrone';
     evt.iteration = e.options.iteration - 1;
     this.dispatchEvent(evt);
@@ -14561,6 +14598,7 @@ ol.control.ProgressBar = class olcontrolProgressBar extends ol.control.Control {
  * @fires abort
  * @param {Object=} options
  *	@param {string} options.className control class name
+ *	@param {string} [options.leng=en] control language
  *	@param {string | undefined} [options.apiKey] the service api key.
  *	@param {string | undefined} options.authentication: basic authentication for the service API as btoa("login:pwd")
  *	@param {Element | string | undefined} options.target Specify a target if you want the control to be rendered outside of the map's viewport.
@@ -14592,6 +14630,7 @@ ol.control.RoutingGeoportail = class olcontrolRoutingGeoportail extends ol.contr
     // Class name for history
     this._classname = options.className || 'search';
     this._source = new ol.source.Vector();
+    this.set('lang', options.lang || 'en')
     // Authentication
     this._auth = options.authentication;
     var classNames = (options.className || "") + " ol-routing";
@@ -14605,7 +14644,8 @@ ol.control.RoutingGeoportail = class olcontrolRoutingGeoportail extends ol.contr
         element.classList.toggle('ol-collapsed');
       });
     }
-    this.set('url', 'https://wxs.ign.fr/calcul/geoportail/' + options.apiKey + '/rest/1.0.0/route');
+    // this.set('url', 'https://wxs.ign.fr/calcul/geoportail/' + options.apiKey + '/rest/1.0.0/route');
+    this.set('url', 'https://data.geopf.fr/navigation/itineraire')
     var content = ol.ext.element.create('DIV', { className: 'content', parent: element });
     var listElt = ol.ext.element.create('DIV', { className: 'search-input', parent: content });
     this._search = [];
@@ -14708,7 +14748,7 @@ ol.control.RoutingGeoportail = class olcontrolRoutingGeoportail extends ol.contr
       element.insertBefore(div, after.nextSibling);
     else
       element.appendChild(div);
-    ol.ext.element.create('BUTTON', { title: options.startlabel || "add/remove", parent: div })
+    ol.ext.element.create('BUTTON', { title: options.startlabel || 'use shift to add / ctrl to remove', parent: div })
       .addEventListener('click', function (e) {
         if (e.ctrlKey) {
           if (this._search.length > 2)
@@ -14805,12 +14845,12 @@ ol.control.RoutingGeoportail = class olcontrolRoutingGeoportail extends ol.contr
     var end = steps[steps.length - 1];
     var waypoints = '';
     for (var i = 1; i < steps.length - 1; i++) {
-      waypoints += (waypoints ? ';' : '') + steps[i].x + ',' + steps[i].y;
+      waypoints += (waypoints ? '|' : '') + steps[i].x + ',' + steps[i].y;
     }
     return {
       resource: 'bdtopo-osrm',
       profile: this.get('mode') === 'pedestrian' ? 'pedestrian' : 'car',
-      optimization: this.get('method') || 'fastest',
+      optimization: this.get('mode') === 'pedestrian' ? '' : this.get('method') || 'fastest',
       start: start.x + ',' + start.y,
       end: end.x + ',' + end.y,
       intermediates: waypoints,
@@ -14846,20 +14886,25 @@ ol.control.RoutingGeoportail = class olcontrolRoutingGeoportail extends ol.contr
     this.resultElement.appendChild(iElement);
     var ul = document.createElement('ul');
     this.resultElement.appendChild(ul);
-    var info = {
-      'none': 'Prendre sur ',
-      'R': 'Tourner à droite sur ',
-      'FR': 'Tourner légèrement à droite sur ',
-      'L': 'Tourner à gauche sur ',
-      'FL': 'Tourner légèrement à gauche sur ',
-      'F': 'Continuer tout droit sur ',
-    };
+    var infoType = ol.control.RoutingGeoportail.prototype.instructions[this.get('lang') || 'en']
+    var infoClassName = {
+      'straight': '',
+      'left': 'L',
+      'right': 'R',
+      'slight left': 'FL',
+      'slight right': 'FR',
+    }
     routing.features.forEach(function (f, i) {
       var d = this.getDistanceString(f.get('distance'));
       t = this.getTimeString(f.get('durationT'));
+      // Decode instructions
+      var instruction = infoType[f.get('instruction_type')] || infoType['none'];
+      instruction += ' ' + (infoType[f.get('instruction_modifier')] || infoType.straight) + ' ';
+      // console.log(f.get('instruction_type'), '-',f.get('instruction_modifier'))
+      // Show info
       ol.ext.element.create('LI', {
-        className: f.get('instruction'),
-        html: (info[f.get('instruction') || 'none'] || '#')
+        className: infoClassName[f.get('instruction_modifier')] || '',
+        html: (instruction || '#')
           + ' ' + f.get('name')
           + '<i>' + d + (t ? ' - ' + t : '') + '</i>',
         on: {
@@ -14899,21 +14944,6 @@ ol.control.RoutingGeoportail = class olcontrolRoutingGeoportail extends ol.contr
     var lastPt;
     for (var i = 0, l; l = data.portions[i]; i++) {
       for (var j = 0, s; s = l.steps[j]; j++) {
-        /*
-        var options = {
-          geometry: geom.transform('EPSG:4326',this.getMap().getView().getProjection()),
-          name: s.name,
-          instruction: s.navInstruction,
-          distance: parseFloat(s.distanceMeters),
-          duration: parseFloat(s.durationSeconds)
-        }
-        //console.log(duration, options.duration, s)
-        distance += options.distance;
-        duration += options.duration;
-        options.distanceT = distance;
-        options.durationT = duration;
-        f = new ol.Feature(options);
-        */
         s.type = 'Feature';
         s.properties = s.attributes.name || s.attributes;
         s.properties.distance = s.distance;
@@ -15062,6 +15092,41 @@ ol.control.RoutingGeoportail = class olcontrolRoutingGeoportail extends ol.contr
     ajax.send();
   }
 }
+/** Instructions labels  */
+ol.control.RoutingGeoportail.prototype.instructions = {
+  'en': {
+    // Instruction type
+    'none': 'Go ',
+    'continue': 'Continue ',
+    'new name': 'Continue ',
+    'depart': 'Start',
+    'arrive': 'Arrival',
+    'turn': 'Turn',
+    'fork': 'Fork',
+    // Instruction modifier
+    'straight': 'on',
+    'left': 'left on',
+    'right': 'right on',
+    'slight left': 'slight left on',
+    'slight right': 'slight right on',
+  },
+  'fr': {
+    // Instruction type
+    'none': 'Continuer ',
+    'continue': 'Continuer ',
+    'new name': 'Continuer ',
+    'depart': 'Départ',
+    'arrive': 'Arrivée',
+    'turn': 'Tourner',
+    'fork': 'Prendre',
+    // Instruction modifier
+    'straight': 'sur',
+    'left': 'à gauche sur',
+    'right': 'à droite sur',
+    'slight left': 'légèrement à gauche sur',
+    'slight right': 'légèrement à droite sur',
+  }
+};
 
 /*	Copyright (c) 2017 Jean-Marc VIGLINO,
   released under the CeCILL-B license (French BSD license)
@@ -15597,14 +15662,19 @@ ol.control.SearchGPS = class olcontrolSearchGPS extends ol.control.Search {
  *
  * @constructor
  * @extends {ol.control.SearchJSON}
- * @fires select
+ * @fires commune
+ * @fires parcelle
  * @param {any} options extend ol.control.SearchJSON options
  *	@param {string} options.className control class name
  *	@param {boolean | undefined} [options.apiKey] the service api key.
  *	@param {string | undefined} options.authentication: basic authentication for the service API as btoa("login:pwd")
  *	@param {Element | string | undefined} options.target Specify a target if you want the control to be rendered outside of the map's viewport.
  *	@param {string | undefined} options.label Text label to use for the search button, default "search"
- *	@param {string | undefined} options.placeholder placeholder, default "Search..."
+ *	@param {string | undefined} options.placeholder placeholder for city input, default "Choisissez une commune..."
+ *	@param {string | undefined} options.prefixlabel label for prefix input, default "Préfixe"
+ *	@param {string | undefined} options.sectionLabel label for section input, default "Section"
+ *	@param {string | undefined} options.numberLabel label for number input, default "Numéro"
+ *	@param {string | undefined} options.arrondLabel label for arrondissement, default "Arrond."
  *	@param {number | undefined} options.typing a delay on each typing to start searching (ms), default 500.
  *	@param {integer | undefined} options.minLength minimum length to start searching, default 3
  *	@param {integer | undefined} options.maxItems maximum number of items to display in the autocomplete list, default 10
@@ -15627,22 +15697,26 @@ ol.control.SearchGeoportailParcelle = class olcontrolSearchGeoportailParcelle ex
     var div = ol.ext.element.create('DIV', {
       parent: element
     });
+    options.arrondLabel = options.arrondLabel || 'Arrond.'
+    options.prefixLabel = options.prefixLabel || 'Préfixe'
+    options.sectionLabel = options.sectionLabel || 'Section'
+    options.numberLabel = options.numberLabel || 'Numéro'
     // Labels
     ol.ext.element.create('LABEL', {
-      text: 'Arrond.',
+      text: options.arrondLabel,
       className: 'district',
       parent: div
     });
     ol.ext.element.create('LABEL', {
-      text: 'Préfixe',
+      text: options.prefixLabel,
       parent: div
     });
     ol.ext.element.create('LABEL', {
-      text: 'Section',
+      text: options.sectionLabel,
       parent: div
     });
     ol.ext.element.create('LABEL', {
-      text: 'Numéro',
+      text: options.numberLabel,
       parent: div
     });
     ol.ext.element.create('BR', {
@@ -15656,9 +15730,13 @@ ol.control.SearchGeoportailParcelle = class olcontrolSearchGeoportailParcelle ex
       numero: document.createElement('INPUT')
     };
     this._inputParcelle.arrond.setAttribute('maxlength', 2);
+    this._inputParcelle.arrond.setAttribute('placeholder', options.arrondLabel);
     this._inputParcelle.prefix.setAttribute('maxlength', 3);
+    this._inputParcelle.prefix.setAttribute('placeholder', options.prefixLabel);
     this._inputParcelle.section.setAttribute('maxlength', 2);
+    this._inputParcelle.section.setAttribute('placeholder', options.sectionLabel);
     this._inputParcelle.numero.setAttribute('maxlength', 4);
+    this._inputParcelle.numero.setAttribute('placeholder', options.numberLabel);
     // Delay search
     var tout;
     var doSearch = function () {
@@ -15704,7 +15782,11 @@ ol.control.SearchGeoportailParcelle = class olcontrolSearchGeoportailParcelle ex
       }
       self.activateParcelle(false);
     });
-    this.on('select', this.selectCommune.bind(this));
+    this.on('select', function(e) {
+      this.selectCommune(e);
+      e.type = 'commune';
+      this.dispatchEvent(e);
+    }.bind(this));
     this.set('pageSize', options.pageSize || 5);
   }
   /** Select a commune => start searching parcelle
@@ -15728,6 +15810,14 @@ ol.control.SearchGeoportailParcelle = class olcontrolSearchGeoportailParcelle ex
     this.activateParcelle(true);
     this._inputParcelle.numero.focus();
     this.autocompleteParcelle();
+  }
+  /** Get the input field
+   * @param {string} what the search input id commune|arrond|prefix|section|numero, default commune 
+   * @return {Element}
+   * @api
+   */
+  getInputField(what) {
+    return this._inputParcelle[what] || this._input;
   }
   /** Set the input parcelle
    * @param {*} p parcel
@@ -15757,6 +15847,11 @@ ol.control.SearchGeoportailParcelle = class olcontrolSearchGeoportailParcelle ex
     } else {
       this._inputParcelle.section.parentElement.classList.remove('ol-active');
     }
+  }
+  /** Clear the parcel list
+   */
+  clearParcelList() {
+    this._listParcelle([])
   }
   /** Send search request for the parcelle
    * @private
@@ -19768,11 +19863,7 @@ ol.control.WMTSCapabilities = class olcontrolWMTSCapabilities extends ol.control
    * @returns {boolean}
    */
   isSupportedSet(tm) {
-    return tm.TileMatrixSet === 'PM' 
-    || tm.TileMatrixSet === '3857' 
-    || tm.TileMatrixSet === 'EPSG:3857' 
-    || tm.TileMatrixSet === 'webmercator'
-    || tm.TileMatrixSet === 'GoogleMapsCompatible'
+    return this.supportedSets.indexOf(tm.TileMatrixSet) >= 0;
   }
   /** Return a WMTS options for the given capabilities
    * @param {*} caps layer capabilities (read from the capabilities)
@@ -19954,6 +20045,16 @@ ol.control.WMTSCapabilities = class olcontrolWMTSCapabilities extends ol.control
     return layer;
   }
 }
+/** An array of supported sets (basically EPSG:3857)
+ */
+ol.control.WMSCapabilities.prototype.supportedSets = [
+  'PM',
+  '3857',
+  'EPSG:3857',
+  'EPSG:900913',
+  'webmercator',
+  'GoogleMapsCompatible'
+]
 
 /*
   Copyright (c) 2016 Jean-Marc VIGLINO, 
@@ -32334,7 +32435,7 @@ ol.source.GeoRSS = class olsourceGeoRSS extends ol.source.Vector {
  *  @param {number} options.minZoom
  *  @param {number} options.maxZoom
  *  @param {string} options.server
- *  @param {string} options.gppKey api key or 'gpf' for new Geoplatform services, default 'choisirgeoportail'
+ *  @param {string} [options.gppKey] api key, default none
  *  @param {string} options.authentication basic authentication associated with the gppKey as btoa("login:pwd")
  *  @param {string} options.format image format, default 'image/jpeg'
  *  @param {string} options.style layer style, default 'normal'
@@ -32363,7 +32464,7 @@ ol.source.Geoportail = class olsourceGeoportail extends ol.source.WMTS {
     tg.minZoom = (options.minZoom ? options.minZoom : 0)
     var attr = [ ol.source.Geoportail.defaultAttribution ]
     if (options.attributions) attr = options.attributions
-    var server = options.server || 'https://data.geopf.fr/wmts' // 'https://wxs.ign.fr/geoportail/wmts'
+    var server = options.server || 'https://data.geopf.fr/wmts' // 'https://wxs.ign.fr/geoportail/wmts' old version
     var gppKey = options.gppKey || options.key || ''
     var wmts_options = {
       url: ol.source.Geoportail.getServiceURL(server, gppKey),
@@ -32507,11 +32608,18 @@ ol.source.Geoportail.defaultAttribution = '<a href="https://geoservices.ign.fr/"
 /** Get service URL according to server url or standard url
  */
 ol.source.Geoportail.getServiceURL = function(server, gppKey) {
-  if (!server) server = 'https://data.geopf.fr/wmts';
-  if (gppKey === 'gpf') {
-    // Default no apikey
-    return 'https://data.geopf.fr/wmts';
-  } else if (/geopf/.test(server)) {
+  // Old gppkey
+  if (gppKey === 'gpf') gppKey = '';
+  // Check server
+  if (!server) {
+    if (gppKey) {
+      server = 'https://data.geopf.fr/private/wmts';
+    } else {
+      server = 'https://data.geopf.fr/wmts';
+    }
+  } 
+  // Add api key
+  if (/geopf/.test(server)) {
     if (gppKey) {
       return server + '?apikey=' + gppKey;
     } else {
@@ -34317,7 +34425,6 @@ ol.layer.GeoImage = class ollayerGeoImage extends ol.layer.Image {
 if (!old) {
     // Old default apikey
     if (gppKey === 'gpf') gppKey = undefined;
-    // TODO [END]
     var server = gppKey ? 'https://data.geopf.fr/private/wmts' : 'https://data.geopf.fr/wmts';
     var url = server + "?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetCapabilities";
     if (gppKey) {
@@ -34345,6 +34452,15 @@ if (!old) {
           var zoom = getMinMaxZoom(l.TileMatrixSetLink[0].TileMatrixSetLimits)
           var theme = getTheme(l.Identifier)
           if (!themes[theme]) themes[theme] = {};
+          // Legend
+          var legend = []
+          if (l.Style) {
+            l.Style.forEach(function (s) {
+              if (s.LegendURL) {
+                legend.push(s.LegendURL[0].href)
+              }
+            })
+          }
           themes[theme][l.Identifier] = capabilities[l.Identifier] = {
             layer: l.Identifier,
             key: gppKey,
@@ -34359,7 +34475,8 @@ if (!old) {
             queryable: layersInfo[i].getElementsByTagName('InfoFormat').length > 0,
             style: (l.Style && l.Style.length ? l.Style[0].Identifier : 'normal'),
             tilematrix: 'PM',
-            title: l.Title
+            title: l.Title,
+            legend: legend
           }
         }
         // Return capabilities
@@ -34372,14 +34489,14 @@ if (!old) {
 // TODO remove old version
     var geopresolutions = [156543.03390625, 78271.516953125, 39135.7584765625, 19567.87923828125, 9783.939619140625, 4891.9698095703125, 2445.9849047851562, 1222.9924523925781, 611.4962261962891, 305.74811309814453, 152.87405654907226, 76.43702827453613, 38.218514137268066, 19.109257068634033, 9.554628534317017, 4.777314267158508, 2.388657133579254, 1.194328566789627, 0.5971642833948135, 0.29858214169740677, 0.14929107084870338]
     // Transform resolution to zoom
-    function getZoom(res) {
+    var getZoom = function(res) {
       res = Number(res) * 0.000281
       for (var r = 0; r < geopresolutions.length; r++)
         if (res > geopresolutions[r])
           return r
     }
     // Merge constraints 
-    function mergeConstraints(ori) {
+    var mergeConstraints = function(ori) {
       for (var i = ori.constraint.length - 1; i > 0; i--) {
         for (var j = 0; j < i; j++) {
           var bok = true
